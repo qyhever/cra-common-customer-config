@@ -1,0 +1,19 @@
+.header {
+  display: flex;
+  justify-content: center;
+  .navs {
+    display: flex;
+    padding: 10px 0;
+  }
+  .navItem {
+    a {
+      color: #333;
+    }
+    a:global(.active) {
+      color: @primary-color;
+    }
+  }
+  .navItem + .navItem {
+    margin-left: 15px;
+  }
+}
