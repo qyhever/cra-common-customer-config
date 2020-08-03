@@ -1,33 +1,27 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { push } from 'connected-react-router'
+import request from '@/utils/request'
 import { Button } from 'antd'
-import { queryTopicList } from '@/store/user'
 
-@connect(
-  ({ user }) => ({ user }),
-  { queryTopicList, push }
-)
+@connect()
 class Home extends Component {
   componentDidMount() {
     this.query()
   }
   query() {
-    this.props.queryTopicList()
+    request('/e-admin/user')
+      .then(console.log)
   }
   goAbout = () => {
-    this.props.push('/about')
+    this.props.dispatch(push('/about'))
   }
   render() {
-    console.log(this.props.user.topicList)
     return (
       <div>
-        <Button type="primary" onClick={this.goAbout}>to about</Button>
-        <ul>
-          {this.props.user.topicList.map(item => (
-            <li key={item.id}>{item.title}</li>
-          ))}
-        </ul>
+        <Button type="primary" onClick={this.goAbout}>
+          to about
+        </Button>
       </div>
     )
   }

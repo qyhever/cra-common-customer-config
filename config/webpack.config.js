@@ -30,12 +30,20 @@ const postcssNormalize = require('postcss-normalize');
 const appPackageJson = require(paths.appPackageJson);
 
 const AntdDayjsWebpackPlugin = require('antd-dayjs-webpack-plugin')
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
+const CompressionPlugin = require('compression-webpack-plugin')
+const WebpackBar = require('webpackbar')
+
 
 // Source maps are resource heavy and can cause out of memory issue for large source files.
 const shouldUseSourceMap = process.env.GENERATE_SOURCEMAP !== 'false';
 // Some apps do not need the benefits of saving a web request, so not inlining the chunk
 // makes for a smoother build process.
 const shouldInlineRuntimeChunk = process.env.INLINE_RUNTIME_CHUNK !== 'false';
+
+const isBundleAnalyzer = process.env.GENERATE_BUNDLE_ANALYZER_REPORT === 'true'
+
+const isGzip = process.env.GENERATE_GZIP_FILE === 'true'
 
 const isExtendingEslintConfig = process.env.EXTEND_ESLINT === 'true';
 
@@ -72,8 +80,8 @@ module.exports = function(webpackEnv) {
   const env = getClientEnvironment(paths.publicUrlOrPath.slice(0, -1));
 
   // common function to get style loaders
-  const getStyleLoaders = (cssOptions, preProcessor) => {
-    const loaders = [
+  const getStyleLoaders = (cssOptions, preProcessor, restLoaders) => {
+    let loaders = [
       isEnvDevelopment && require.resolve('style-loader'),
       isEnvProduction && {
         loader: MiniCssExtractPlugin.loader,
@@ -144,6 +152,9 @@ module.exports = function(webpackEnv) {
         },
         preProcessorRule
       );
+    }
+    if (Array.isArray(restLoaders) && restLoaders.length) {
+      loaders = loaders.concat(restLoaders)
     }
     return loaders;
   };
@@ -515,7 +526,17 @@ module.exports = function(webpackEnv) {
                   importLoaders: 2,
                   sourceMap: isEnvProduction && shouldUseSourceMap,
                 },
-                'less-loader'
+                'less-loader',
+                [
+                  {
+                    loader: 'sass-resources-loader',
+                    options: {
+                      resources: [
+                        path.resolve(__dirname, '../src/assets/styles/var.less')
+                      ]
+                    }
+                  }
+                ]
               ),
               // Don't consider CSS imports dead code even if the
               // containing package claims to have no side effects.
@@ -524,7 +545,7 @@ module.exports = function(webpackEnv) {
               sideEffects: true,
             },
             // Adds support for CSS Modules, but using less
-            // using the extension .module.scss or .module.less
+            // using the extension .module.less
             {
               test: lessModuleRegex,
               use: getStyleLoaders(
@@ -535,7 +556,17 @@ module.exports = function(webpackEnv) {
                     getLocalIdent: getCSSModuleLocalIdent,
                   }
                 },
-                'less-loader'
+                'less-loader',
+                [
+                  {
+                    loader: 'sass-resources-loader',
+                    options: {
+                      resources: [
+                        path.resolve(__dirname, '../src/assets/styles/var.less')
+                      ]
+                    }
+                  }
+                ]
               ),
             },
             // "file" loader makes sure those assets get served by WebpackDevServer.
@@ -561,7 +592,17 @@ module.exports = function(webpackEnv) {
       ],
     },
     plugins: [
+      new webpack.ProgressPlugin(),
+      new WebpackBar(),
       new AntdDayjsWebpackPlugin(),
+      isEnvProduction && isBundleAnalyzer && new BundleAnalyzerPlugin(),
+      isEnvProduction && isGzip && new CompressionPlugin({
+        filename: '[path].gz[query]',
+        algorithm: 'gzip',
+        test: /\.js$|\.css$/,
+        threshold: 10240,
+        minRatio: 0.8
+      }),
       // Generates an `index.html` file with the <script> injected.
       new HtmlWebpackPlugin(
         Object.assign(
